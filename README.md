@@ -1,7 +1,7 @@
 # Gorillas 3D War
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Patrocinar](https://img.shields.io/badge/Patrocinar-GitHub-4CAF50.svg)](https://github.com/sponsors/SEUUSUARIO)
+[![Patrocinar](https://img.shields.io/badge/Patrocinar-GitHub-4CAF50.svg)](https://github.com/sponsors/pedrohbtp)
 
 Um jogo de artilharia 3D inspirado no clássico "Gorillas" dos anos 90, desenvolvido em Python com o motor gráfico Panda3D.
 
@@ -22,9 +22,21 @@ Gorillas 3D War é um jogo de artilharia por turnos em ambiente tridimensional o
 ## Como Jogar
 
 ### Instalação
+
+#### Usuários Finais
+Baixe a versão compilada para seu sistema operacional na página de [Releases](https://github.com/pedrohbtp/Gorillas3DWar/releases).
+
+#### Desenvolvedores
 1. Certifique-se de ter Python 3.7+ instalado
 2. Instale as dependências: `pip install -r requirements.txt`
 3. Execute o jogo: `python main.py`
+
+### Compilação
+Para gerar executáveis para distribuição:
+```bash
+python build_executables.py
+```
+Os executáveis serão gerados na pasta `executaveis/`.
 
 ### Controles
 - **W/S**: Ajusta o ângulo de lançamento (cima/baixo)
@@ -49,6 +61,47 @@ Gorillas 3D War é um jogo de artilharia por turnos em ambiente tridimensional o
 - **Bullet Physics**: Sistema de física realista para colisões e destruição
 - **GLSL Shaders**: Para efeitos visuais avançados
 - **Python**: Linguagem principal de desenvolvimento
+- **PyInstaller**: Para geração de executáveis multiplataforma
+
+## Estrutura do Projeto
+
+```
+Gorillas3DWar/
+├── src/              # Código-fonte do jogo
+│   ├── effects.py    # Sistema de efeitos visuais
+│   ├── game.py      # Lógica principal do jogo
+│   ├── sound.py     # Sistema de áudio
+│   ├── weather.py   # Sistema de clima dinâmico
+│   ├── ...
+├── models/           # Modelos 3D
+├── textures/         # Texturas
+├── sounds/           # Arquivos de áudio
+├── main.py           # Ponto de entrada do jogo
+├── build_executables.py  # Script para gerar executáveis
+├── requirements.txt  # Dependências do projeto
+└── LICENSE           # Arquivo de licença MIT
+```
+
+## Últimas Atualizações
+
+### Versão 1.0.0 (Maio 2025)
+- Lançamento inicial do jogo
+- Implementação do sistema de clima dinâmico
+- Correções no sistema de efeitos de explosão
+- Melhoria na robustez do sistema de partículas
+- Tratamento de erros para compatibilidade com diferentes ambientes
+
+## Contribuição
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+3. Faça commit das suas alterações (`git commit -am 'Adicionando nova feature'`)
+4. Faça push para a branch (`git push origin feature/nova-feature`)
+5. Crie um novo Pull Request
+
+## Licença
+
+Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
 - **NumPy**: Cálculos matemáticos e física
 
 ## Distribuição

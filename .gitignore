@@ -29,6 +29,19 @@ venv/
 ENV/
 tmp/
 tmp_dist/
+
+# Arquivos específicos do projeto
+executaveis/
+*.spec
+fix_*.py
+create_*.py
+*.bak
+
+# IDEs e editores
+.vscode/
+.idea/
+*.swp
+*.swo
 *.tmp
 *.bak
 *.swp

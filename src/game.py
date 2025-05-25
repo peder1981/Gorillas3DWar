@@ -85,6 +85,28 @@ class Gorillas3DWar(ShowBase):
         # Mostra o menu principal
         self.mostrar_menu_principal()
 
+    def inicializar_sistemas(self):
+        """
+        Inicializa os sistemas auxiliares do jogo como som, efeitos, clima e destruíção.
+        """
+        # Sistema de som
+        self.som = SoundManager(self)
+        
+        # Sistema de efeitos visuais
+        self.efeitos = ExplosionManager(self)
+        
+        # Sistema de clima
+        self.clima = WeatherSystem(self)
+        self.clima.configurar_clima('ensolarado', 0.0)  # Clima padrão inicial
+        
+        # Sistema de destruíção de cenário
+        self.destruicao = DestructionSystem(self)
+        
+        # Lista de projéteis ativos
+        self.projeteis = []
+        
+        print("Sistemas do jogo inicializados")
+        
     def configurar_janela(self):
         """
         Configura as propriedades da janela do jogo.

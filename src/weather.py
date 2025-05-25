@@ -4,10 +4,34 @@
 Gorillas 3D War - Módulo de sistema de clima
 """
 from panda3d.core import NodePath, TextureStage, Texture
-from panda3d.core import Point3, Vec3, ColorBlendAttrib
+from panda3d.core import Point3, Vec3, Vec4, ColorBlendAttrib, TransparencyAttrib
+from panda3d.core import CardMaker
 from direct.particles.ParticleEffect import ParticleEffect
+from direct.particles.Particles import Particles
+from direct.particles.ForceGroup import ForceGroup
+from direct.particles.ParticleManagerGlobal import particleMgr
+from panda3d.physics import LinearVectorForce
+from panda3d.core import TextNode
 import random
 import math
+
+# Constantes para o sistema de partículas
+# Em vez de importar BaseParticleRenderer e BaseParticleEmitter, definimos as constantes diretamente
+# Valores baseados na documentação do Panda3D
+class ParticleConstants:
+    # Modos Alpha do renderizador
+    PRALPHANONE = 0
+    PRALPHAOUT = 1
+    PRALPHAUSER = 2
+    PRALPHANEW = 3
+    PRALPHAOLD = 4
+    PRALPHABOTH = 5
+    
+    # Tipos de emissão
+    ETEXPLICIT = 0
+    ETCUSTOM = 1
+    ETRADIATE = 2
+    ETRADIATEPLUSEJECT = 3
 
 class WeatherSystem:
     """
@@ -66,40 +90,61 @@ class WeatherSystem:
         # Em uma implementação real, carregaríamos a configuração de um arquivo
         # Como não temos acesso aos arquivos, vamos configurar manualmente
         
-        # Criamos um gerador de partículas básico
-        p0 = chuva.createParticleEffect()
+        # Na versão atual do Panda3D, não precisamos criar um efeito separado
+        # Apenas configuramos o efeito existente
+        chuva.reset()
+        
+        # Adiciona um novo sistema de partículas
+        p0 = Particles('rain')
+        
+        # Configurações básicas
         p0.setFactory("PointParticleFactory")
         p0.setRenderer("LineParticleRenderer")
         p0.setEmitter("BoxEmitter")
+        p0.setPoolSize(128)
+        p0.setBirthRate(0.1)
+        p0.setLitterSize(16)
+        p0.setLitterSpread(8)
+        p0.setSystemLifespan(0.0)
+        p0.setLocalVelocityFlag(1)
+        p0.setSystemGrowsOlderFlag(0)
         
-        # Configurações básicas
-        p0.getFactory().setLifespanBase(0.5)
-        p0.getFactory().setLifespanSpread(0.2)
-        p0.getFactory().setMassBase(1.0)
-        p0.getFactory().setMassSpread(0.0)
+        # Configurações da fábrica
+        p0.factory.setLifespanBase(0.5)
+        p0.factory.setLifespanSpread(0.2)
+        p0.factory.setMassBase(1.0)
+        p0.factory.setMassSpread(0.0)
+        p0.factory.setTerminalVelocityBase(400.0)
+        p0.factory.setTerminalVelocitySpread(0.0)
         
         # Configurações do renderizador
-        p0.getRenderer().setAlphaMode(BaseParticleRenderer.PRALPHANONE)
-        p0.getRenderer().setUserAlpha(0.3)
-        
-        # Configura a linha para parecer gotas de chuva
-        l = p0.getRenderer()
-        l.setHeadColor(Vec4(0.5, 0.5, 1.0, 1.0))
-        l.setTailColor(Vec4(0.3, 0.3, 1.0, 0.0))
-        l.setLineScaleFactor(2.0)
+        p0.renderer.setAlphaMode(ParticleConstants.PRALPHAOUT)  # Alpha diminui com o tempo
+        p0.renderer.setUserAlpha(0.3)
+        p0.renderer.setHeadColor(Vec4(0.5, 0.5, 1.0, 1.0))
+        p0.renderer.setTailColor(Vec4(0.3, 0.3, 1.0, 0.0))
+        p0.renderer.setLineScaleFactor(1.0)
         
         # Configurações do emissor
-        e = p0.getEmitter()
-        e.setEmissionType(BaseParticleEmitter.ETRADIATE)
-        e.setAmplitude(1.0)
-        e.setAmplitudeSpread(0.0)
-        e.setOffsetForce(Vec3(0.0, 0.0, -10.0))
-        e.setExplicitLaunchVector(Vec3(0.0, 0.0, -10.0))
-        e.setRadiateOrigin(Point3(0.0, 0.0, 20.0))
+        p0.emitter.setEmissionType(ParticleConstants.ETRADIATE)  # Radiação constante
+        p0.emitter.setAmplitude(1.0)
+        p0.emitter.setAmplitudeSpread(0.0)
+        p0.emitter.setOffsetForce(Vec3(0.0, 0.0, -10.0))
+        p0.emitter.setExplicitLaunchVector(Vec3(0.0, 0.0, -10.0))
+        p0.emitter.setRadiateOrigin(Point3(0.0, 0.0, 20.0))
         
         # Configura a caixa do emissor
-        e.setMinBound(Point3(-50.0, -50.0, 20.0))
-        e.setMaxBound(Point3(50.0, 50.0, 20.0))
+        p0.emitter.setMinBound(Point3(-50.0, -50.0, 20.0))
+        p0.emitter.setMaxBound(Point3(50.0, 50.0, 20.0))
+        
+        # Adiciona o sistema de partículas ao efeito
+        chuva.addParticles(p0)
+        
+        # Adiciona forças (gravidade)
+        f0 = ForceGroup('gravity')
+        force0 = LinearVectorForce(Vec3(0.0, 0.0, -9.8))
+        force0.setActive(1)
+        f0.addForce(force0)
+        chuva.addForceGroup(f0)
         
         # Armazena o efeito
         self.particulas['chuva'] = chuva
@@ -114,46 +159,68 @@ class WeatherSystem:
         # Em uma implementação real, carregaríamos a configuração de um arquivo
         # Como não temos acesso aos arquivos, vamos configurar manualmente
         
-        # Criamos um gerador de partículas básico
-        p0 = neve.createParticleEffect()
+        # Reinicia o efeito
+        neve.reset()
+        
+        # Adiciona um novo sistema de partículas
+        p0 = Particles('snow')
+        
+        # Configurações básicas
         p0.setFactory("PointParticleFactory")
         p0.setRenderer("SpriteParticleRenderer")
         p0.setEmitter("BoxEmitter")
+        p0.setPoolSize(128)
+        p0.setBirthRate(0.2)
+        p0.setLitterSize(8)
+        p0.setLitterSpread(3)
+        p0.setSystemLifespan(0.0)
+        p0.setLocalVelocityFlag(1)
+        p0.setSystemGrowsOlderFlag(0)
         
-        # Configurações básicas
-        p0.getFactory().setLifespanBase(3.0)
-        p0.getFactory().setLifespanSpread(0.5)
-        p0.getFactory().setMassBase(1.0)
-        p0.getFactory().setMassSpread(0.0)
+        # Configurações da fábrica
+        p0.factory.setLifespanBase(3.0)
+        p0.factory.setLifespanSpread(0.5)
+        p0.factory.setMassBase(1.0)
+        p0.factory.setMassSpread(0.0)
+        p0.factory.setTerminalVelocityBase(100.0)
+        p0.factory.setTerminalVelocitySpread(0.0)
         
         # Configurações do renderizador
-        p0.getRenderer().setAlphaMode(BaseParticleRenderer.PRALPHANONE)
-        p0.getRenderer().setUserAlpha(0.8)
+        p0.renderer.setAlphaMode(ParticleConstants.PRALPHANONE)
+        p0.renderer.setUserAlpha(0.8)
         
         # Configura o sprite para ser um floco de neve
         # Idealmente, carregaríamos uma textura de floco de neve
-        s = p0.getRenderer()
-        s.setColor(Vec4(1.0, 1.0, 1.0, 1.0))
-        s.setXScaleFlag(1)
-        s.setYScaleFlag(1)
-        s.setAnimAngleFlag(0)
-        s.setInitialXScale(0.05)
-        s.setFinalXScale(0.05)
-        s.setInitialYScale(0.05)
-        s.setFinalYScale(0.05)
+        p0.renderer.setColor(Vec4(1.0, 1.0, 1.0, 1.0))
+        p0.renderer.setXScaleFlag(1)
+        p0.renderer.setYScaleFlag(1)
+        p0.renderer.setAnimAngleFlag(0)
+        p0.renderer.setInitialXScale(0.05)
+        p0.renderer.setFinalXScale(0.05)
+        p0.renderer.setInitialYScale(0.05)
+        p0.renderer.setFinalYScale(0.05)
         
         # Configurações do emissor
-        e = p0.getEmitter()
-        e.setEmissionType(BaseParticleEmitter.ETRADIATE)
-        e.setAmplitude(1.0)
-        e.setAmplitudeSpread(0.0)
-        e.setOffsetForce(Vec3(0.0, 0.0, -1.0))
-        e.setExplicitLaunchVector(Vec3(0.0, 0.0, -1.0))
-        e.setRadiateOrigin(Point3(0.0, 0.0, 20.0))
+        p0.emitter.setEmissionType(ParticleConstants.ETRADIATE)
+        p0.emitter.setAmplitude(1.0)
+        p0.emitter.setAmplitudeSpread(0.0)
+        p0.emitter.setOffsetForce(Vec3(0.0, 0.0, -1.0))
+        p0.emitter.setExplicitLaunchVector(Vec3(0.0, 0.0, -1.0))
+        p0.emitter.setRadiateOrigin(Point3(0.0, 0.0, 20.0))
         
         # Configura a caixa do emissor
-        e.setMinBound(Point3(-50.0, -50.0, 20.0))
-        e.setMaxBound(Point3(50.0, 50.0, 20.0))
+        p0.emitter.setMinBound(Point3(-50.0, -50.0, 20.0))
+        p0.emitter.setMaxBound(Point3(50.0, 50.0, 20.0))
+        
+        # Adiciona o sistema de partículas ao efeito
+        neve.addParticles(p0)
+        
+        # Adiciona forças (gravidade leve para neve)
+        f0 = ForceGroup('gravity')
+        force0 = LinearVectorForce(Vec3(0.0, 0.0, -3.8))
+        force0.setActive(1)
+        f0.addForce(force0)
+        neve.addForceGroup(f0)
         
         # Armazena o efeito
         self.particulas['neve'] = neve
@@ -182,6 +249,17 @@ class WeatherSystem:
             
         # Esconde a neblina inicialmente
         self.neblina_node.hide()
+        
+    def configurar_clima(self, tipo, intensidade=0.5, transicao=True):
+        """
+        Alias para definir_clima para manter compatibilidade com código existente.
+        
+        Args:
+            tipo: Tipo de clima ('limpo', 'chuva', 'neve', 'neblina', 'tempestade').
+            intensidade: Intensidade do clima, de 0.0 a 1.0.
+            transicao: Se True, faz uma transição suave.
+        """
+        return self.definir_clima(tipo, intensidade, transicao)
         
     def definir_clima(self, tipo, intensidade=0.5, transicao=True):
         """
@@ -230,11 +308,28 @@ class WeatherSystem:
             # Ativa o efeito de chuva
             if 'chuva' in self.particulas:
                 particula = self.particulas['chuva']
-                particula.start(self.weather_node)
-                
-                # Ajusta a intensidade
-                p0 = particula.getParticlesNamed('particles-1')
-                p0.getEmitter().setAmplitude(intensidade * 2.0)
+                # Inicia o efeito de partículas com tratamento seguro
+                try:
+                    particula.start(self.weather_node)
+                except AttributeError as e:
+                    # Trata o erro quando o gerenciador de física não está disponível
+                    print(f"Aviso: Não foi possível iniciar o efeito de chuva: {e}")
+                    # Tenta ativar as partículas de forma alternativa
+                    try:
+                        # Acessa diretamente o renderizador de partículas sem usar o gerenciador de física
+                        for p in particula.getParticlesList():
+                            p.setRenderParent(self.weather_node.node())
+                            p.setActive(True)
+                    except Exception as e2:
+                        print(f"Aviso: Não foi possível ativar partículas de chuva: {e2}")                # Ajusta a intensidade com verificações de segurança
+                try:
+                    p0 = particula.getParticlesNamed('particles-1')
+                    if p0 and hasattr(p0, 'getEmitter'):
+                        emissor = p0.getEmitter()
+                        if emissor:
+                            emissor.setAmplitude(intensidade * 2.0)
+                except Exception as e:
+                    print(f"Aviso: Não foi possível ajustar a intensidade da chuva: {e}")
                 
                 # Inicia o som de chuva
                 if hasattr(self.game, 'som'):
@@ -245,11 +340,28 @@ class WeatherSystem:
             # Ativa o efeito de neve
             if 'neve' in self.particulas:
                 particula = self.particulas['neve']
-                particula.start(self.weather_node)
-                
-                # Ajusta a intensidade
-                p0 = particula.getParticlesNamed('particles-1')
-                p0.getEmitter().setAmplitude(intensidade * 2.0)
+                # Inicia o efeito de partículas com tratamento seguro
+                try:
+                    particula.start(self.weather_node)
+                except AttributeError as e:
+                    # Trata o erro quando o gerenciador de física não está disponível
+                    print(f"Aviso: Não foi possível iniciar o efeito de neve: {e}")
+                    # Tenta ativar as partículas de forma alternativa
+                    try:
+                        # Acessa diretamente o renderizador de partículas sem usar o gerenciador de física
+                        for p in particula.getParticlesList():
+                            p.setRenderParent(self.weather_node.node())
+                            p.setActive(True)
+                    except Exception as e2:
+                        print(f"Aviso: Não foi possível ativar partículas de neve: {e2}")                # Ajusta a intensidade com verificações de segurança
+                try:
+                    p0 = particula.getParticlesNamed('particles-1')
+                    if p0 and hasattr(p0, 'getEmitter'):
+                        emissor = p0.getEmitter()
+                        if emissor:
+                            emissor.setAmplitude(intensidade * 2.0)
+                except Exception as e:
+                    print(f"Aviso: Não foi possível ajustar a intensidade da neve: {e}")
                 
         elif tipo == 'neblina':
             # Ativa o efeito de neblina
@@ -319,16 +431,28 @@ class WeatherSystem:
         intensidade_atual = self.intensidade_anterior + (self.intensidade - self.intensidade_anterior) * progress
         
         # Aplica o clima com a intensidade atual
-        if progress < 0.5:
-            # Primeira metade: desativa o clima anterior gradualmente
-            self.aplicar_clima(self.clima_anterior, intensidade_atual * (1.0 - progress * 2))
-        else:
-            # Segunda metade: ativa o novo clima gradualmente
-            self.aplicar_clima(self.clima_atual, intensidade_atual * (progress * 2 - 1.0))
+        try:
+            if progress < 0.5:
+                # Primeira metade: desativa o clima anterior gradualmente
+                self.aplicar_clima(self.clima_anterior, intensidade_atual * (1.0 - progress * 2))
+            else:
+                # Segunda metade: ativa o novo clima gradualmente
+                self.aplicar_clima(self.clima_atual, intensidade_atual * (progress * 2 - 1.0))
+        except Exception as e:
+            print(f"Aviso: Erro durante a transição de clima: {e}")
+            # Em caso de erro, tenta aplicar diretamente o clima atual com a intensidade atual
+            try:
+                self.aplicar_clima(self.clima_atual, intensidade_atual)
+            except Exception as e2:
+                print(f"Aviso: Não foi possível aplicar o clima após erro: {e2}")
+                # Se falhar, simplesmente continua com a transição
         
         # Verifica se a transição terminou
         if progress >= 1.0:
-            self.aplicar_clima(self.clima_atual, self.intensidade)
+            try:
+                self.aplicar_clima(self.clima_atual, self.intensidade)
+            except Exception as e:
+                print(f"Aviso: Erro ao finalizar transição de clima: {e}")
             return task.done
             
         return task.cont

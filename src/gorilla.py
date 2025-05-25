@@ -238,7 +238,9 @@ class Gorilla:
         text_node.setText(f"Jogador {jogador_num}")
         
         # Configura a aparência do texto
-        text_node.setTextColor(*self.cor)
+        # Adiciona o componente alpha (1.0) à cor do jogador
+        cor_rgba = (self.cor[0], self.cor[1], self.cor[2], 1.0)
+        text_node.setTextColor(*cor_rgba)
         text_node.setAlign(TextNode.ACenter)
         text_node.setShadow(0.05, 0.05)
         text_node.setShadowColor(0, 0, 0, 1)

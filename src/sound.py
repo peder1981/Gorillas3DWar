@@ -4,7 +4,7 @@
 Gorillas 3D War - Módulo de gerenciamento de sons
 """
 from direct.showbase import Audio3DManager
-from panda3d.core import AudioSound, Vec3
+from panda3d.core import AudioSound, Vec3, NodePath
 
 class SoundManager:
     """
@@ -129,11 +129,23 @@ class SoundManager:
             
         # Define a posição 3D
         if posicao is not None:
+            # Precisamos criar um NodePath para associar o som, já que attachSoundToObject
+            # espera um NodePath e não apenas uma posição Vec3
+            temp_node = NodePath("sound_node")
+            
+            # Converte para Vec3 se for uma tupla
             if isinstance(posicao, tuple) and len(posicao) == 3:
-                node_pos = Vec3(posicao[0], posicao[1], posicao[2])
-                self.audio3d.attachSoundToObject(som, node_pos)
-            else:
-                self.audio3d.attachSoundToObject(som, posicao)
+                pos_vec = Vec3(posicao[0], posicao[1], posicao[2])
+                temp_node.setPos(pos_vec)
+            elif isinstance(posicao, Vec3):
+                # Se já é um Vec3, use-o diretamente
+                temp_node.setPos(posicao)
+            elif isinstance(posicao, NodePath):
+                # Se já é um NodePath, use-o diretamente
+                temp_node = posicao
+            
+            # Associa o som ao node path temporário
+            self.audio3d.attachSoundToObject(som, temp_node)
             
         # Toca o som se não estiver tocando
         if not som.status() == AudioSound.PLAYING:

@@ -27,11 +27,15 @@ class GameUI:
         self.fonte_media = self.game.loader.loadFont("cmss12")
         self.fonte_grande = self.game.loader.loadFont("cmss12")
         
-        # Ajusta as fontes se forem carregadas com sucesso
-        if not self.fonte_pequena.isEmpty():
+        # Ajusta as fontes - não precisamos verificar se estão vazias,
+        # pois o Panda3D lida com isso automaticamente
+        try:
             self.fonte_pequena.setPixelsPerUnit(60)
             self.fonte_media.setPixelsPerUnit(80)
             self.fonte_grande.setPixelsPerUnit(120)
+        except Exception as e:
+            print(f"Aviso: Não foi possível ajustar as fontes: {e}")
+            # Continua mesmo se não puder ajustar as fontes
         
         # HUD do jogo
         self.criar_hud()

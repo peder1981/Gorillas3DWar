@@ -4,7 +4,7 @@
 Gorillas 3D War - Módulo para efeitos visuais
 """
 from panda3d.core import NodePath, PointLight, AmbientLight, Spotlight
-from panda3d.core import LPoint3, LVector3, ColorBlendAttrib, TransparencyAttrib
+from panda3d.core import LPoint3, LVector3, ColorBlendAttrib, TransparencyAttrib, VBase4
 from panda3d.core import TextureStage, Texture, LineSegs
 from direct.particles.ParticleEffect import ParticleEffect
 import random
@@ -43,6 +43,7 @@ class EffectsSystem:
         self.fumaca_node = self.game.render.attachNewNode("fumaca")
         self.centelhas_node = self.game.render.attachNewNode("centelhas")
         self.fragmentos_node = self.game.render.attachNewNode("fragmentos")
+        self.explosoes_node = self.game.render.attachNewNode("explosoes")
         
         # Ativa transparência para os nós que precisam
         self.rastros_node.setTransparency(TransparencyAttrib.MAlpha)
@@ -507,16 +508,29 @@ class EffectsSystem:
         explosao['luzes'] = luzes
         
         # Cria a onda de choque (esfera que expande)
-        onda_choque = self._criar_onda_choque(explosao_node, cor_base, raio)
-        explosao['onda_choque'] = onda_choque
+        try:
+            onda_choque = self._criar_onda_choque(explosao_node, cor_base, raio)
+            explosao['onda_choque'] = onda_choque
+        except Exception as e:
+            print(f"Aviso: Erro ao criar onda de choque: {e}")
+            explosao['onda_choque'] = None
         
         # Cria o flash de luz inicial
-        flash = self._criar_flash_explosao(explosao_node, cor_base, raio)
-        explosao['flash'] = flash
+        try:
+            flash = self._criar_flash_explosao(explosao_node, cor_base, raio)
+            explosao['flash'] = flash
+        except Exception as e:
+            print(f"Aviso: Erro ao criar flash de explosão: {e}")
+            explosao['flash'] = None
         
         # Cria as partículas de explosão
-        particulas = self._criar_particulas_explosao(explosao_node, num_particulas, raio, cor_base, duracao)
-        explosao['particulas'] = particulas
+        try:
+            particulas = self._criar_particulas_explosao(explosao_node, num_particulas, raio, cor_base, duracao)
+            explosao['particulas'] = particulas
+        except Exception as e:
+            print(f"Aviso: Erro ao criar partículas de explosão: {e}")
+            particulas = []
+            explosao['particulas'] = particulas
         
         # Cria centelhas
         num_centelhas = max(5, int(num_particulas * 0.3))
@@ -525,7 +539,11 @@ class EffectsSystem:
         
         # Cria fumaça
         num_nuvens_fumaca = max(3, int(num_particulas * 0.2))
-        self._criar_fumaca_explosao(explosao, num_nuvens_fumaca, raio, duracao)
+        try:
+            self._criar_fumaca_explosao(explosao, num_nuvens_fumaca, raio, duracao)
+        except Exception as e:
+            print(f"Aviso: Erro ao criar fumaça de explosão: {e}")
+            explosao['fumaca'] = []
         
         # Aplica efeitos de física se o sistema estiver disponível
         if self.sistema_fisica and self.usar_fisica_avancada:
@@ -557,6 +575,256 @@ class EffectsSystem:
             self.estatisticas['num_particulas'] += len(explosao['centelhas'])
         
         return explosao
+    def _criar_luzes_explosao(self, node_pai, cor_base, raio):
+        """
+        Cria luzes para a explosão para iluminar dinamicamente a cena.
+        
+        Args:
+            node_pai: Nó pai para anexar as luzes.
+            cor_base: Cor base da explosão.
+            raio: Raio da explosão que afeta o alcance das luzes.
+            
+        Returns:
+            Lista de luzes criadas para a explosão.
+        """
+        # Lista para armazenar as luzes criadas
+        luzes = []
+        
+        try:
+            # Luz principal no centro da explosão
+            luz_central = PointLight('luz_explosao_central')
+            luz_central.setColor(VBase4(cor_base[0], cor_base[1], cor_base[2], 1))
+            luz_central.setAttenuation(LVector3(0.0, 0.0, 0.5 / raio))
+            luz_central_np = node_pai.attachNewNode(luz_central)
+            luz_central_np.setPos(0, 0, 0)
+            
+            # Define alcance com base no raio da explosão
+            alcance = raio * 3.0
+            luz_central.setMaxDistance(alcance)
+            
+            # Ativa a luz na cena
+            self.game.render.setLight(luz_central_np)
+            
+            luzes.append({
+                'node': luz_central_np,
+                'light': luz_central,
+                'tipo': 'central',
+                'intensidade_inicial': 1.0
+            })
+            
+            # Luz secundária com cor mais quente (tons de laranja)
+            luz_sec = PointLight('luz_explosao_secundaria')
+            cor_sec = VBase4(min(1.0, cor_base[0] * 1.2), 
+                            min(1.0, cor_base[1] * 0.7),
+                            min(0.5, cor_base[2] * 0.3), 1)
+            luz_sec.setColor(cor_sec)
+            luz_sec.setAttenuation(LVector3(0.0, 0.0, 1.0 / raio))
+            luz_sec_np = node_pai.attachNewNode(luz_sec)
+            luz_sec_np.setPos(0, 0, 0)
+            
+            # Define alcance menor para a luz secundária
+            luz_sec.setMaxDistance(alcance * 0.6)
+            
+            # Ativa a luz na cena
+            self.game.render.setLight(luz_sec_np)
+            
+            luzes.append({
+                'node': luz_sec_np,
+                'light': luz_sec,
+                'tipo': 'secundaria',
+                'intensidade_inicial': 0.8
+            })
+            
+        except Exception as e:
+            # Em caso de erro na criação de luzes, registra o problema mas não falha
+            print(f"Aviso: Erro ao criar luzes para explosão: {e}")
+        
+        return luzes
+    
+    def _criar_onda_choque(self, node_pai, cor_base, raio):
+        """
+        Cria uma onda de choque visual para a explosão (esfera que expande).
+        
+        Args:
+            node_pai: Nó pai para anexar a onda de choque.
+            cor_base: Cor base da explosão.
+            raio: Raio da explosão.
+            
+        Returns:
+            NodePath da onda de choque criada.
+        """
+        # Cria uma esfera para representar a onda de choque
+        onda = self.game.loader.loadModel("models/misc/sphere")
+        onda.reparentTo(node_pai)
+        
+        # Configura a aparência da onda
+        onda.setTransparency(TransparencyAttrib.MAlpha)
+        
+        # Define a cor inicial da onda com base na cor da explosão
+        # Geralmente mais clara e transparente
+        r, g, b = cor_base
+        cor_onda = VBase4(
+            min(1.0, r * 1.5),  # Mais claro no vermelho
+            min(1.0, g * 1.5),  # Mais claro no verde
+            min(1.0, b * 1.5),  # Mais claro no azul
+            0.7                # Semi-transparente
+        )
+        onda.setColor(cor_onda)
+        
+        # Escala inicial muito pequena, vai crescer com o tempo
+        onda.setScale(0.1)
+        
+        # Aplica um efeito de mistura aditiva para dar um brilho mais intenso
+        onda.setAttrib(ColorBlendAttrib.make(
+            ColorBlendAttrib.MAdd, 
+            ColorBlendAttrib.OIncomingAlpha, 
+            ColorBlendAttrib.OOne))
+        
+        # Se tiver shader manager, aplica shader de onda de choque
+        if hasattr(self, 'shader_manager') and self.shader_manager:
+            try:
+                # Verifica se o método aplicar_shader existe
+                if hasattr(self.shader_manager, 'aplicar_shader'):
+                    self.shader_manager.aplicar_shader('onda_choque', onda)
+                # Tenta outro método comum em shader managers
+                elif hasattr(self.shader_manager, 'aplicar'):
+                    self.shader_manager.aplicar('onda_choque', onda)
+            except Exception as e:
+                print(f"Aviso: Não foi possível aplicar shader à onda de choque: {e}")
+        
+        return onda
+        
+    def _criar_flash_explosao(self, node_pai, cor_base, raio):
+        """
+        Cria um flash de luz inicial para a explosão.
+        
+        Args:
+            node_pai: Nó pai para anexar o flash.
+            cor_base: Cor base da explosão.
+            raio: Raio da explosão.
+            
+        Returns:
+            NodePath do flash criado.
+        """
+        # Cria um quad para representar o flash
+        flash = self.game.loader.loadModel("models/misc/plane")
+        flash.reparentTo(node_pai)
+        
+        # Configura a aparência do flash
+        flash.setTransparency(TransparencyAttrib.MAlpha)
+        
+        # Define a cor do flash (geralmente branco brilhante)
+        r, g, b = cor_base
+        cor_flash = VBase4(
+            min(1.0, r * 2.0),  # Mais intenso no vermelho
+            min(1.0, g * 2.0),  # Mais intenso no verde
+            min(1.0, b * 2.0),  # Mais intenso no azul
+            0.9                 # Quase opaco inicialmente
+        )
+        flash.setColor(cor_flash)
+        
+        # Tamanho inicial baseado no raio
+        flash.setScale(raio * 1.5)
+        
+        # Sempre virado para a câmera
+        flash.setBillboardPointEye()
+        
+        # Efeito de blend aditivo para brilho intenso
+        flash.setAttrib(ColorBlendAttrib.make(
+            ColorBlendAttrib.MAdd, 
+            ColorBlendAttrib.OIncomingAlpha, 
+            ColorBlendAttrib.OOne))
+        
+        return flash
+        
+    def _criar_particulas_explosao(self, node_pai, num_particulas, raio, cor_base, duracao):
+        """
+        Cria partículas para a explosão.
+        
+        Args:
+            node_pai: Nó pai para anexar as partículas.
+            num_particulas: Número de partículas a criar.
+            raio: Raio da explosão.
+            cor_base: Cor base da explosão.
+            duracao: Duração da explosão em segundos.
+            
+        Returns:
+            Lista de partículas criadas.
+        """
+        particulas = []
+        
+        # Cria fragmentos de detritos para simular a explosão
+        for _ in range(num_particulas):
+            # Direção aleatória em 3D
+            phi = random.uniform(0, math.pi * 2)
+            theta = random.uniform(0, math.pi)
+            
+            x = math.sin(theta) * math.cos(phi)
+            y = math.sin(theta) * math.sin(phi)
+            z = math.cos(theta)
+            
+            # Velocidade baseada no raio (maior raio = mais velocidade)
+            velocidade = random.uniform(5, 15) * (raio / 2.0)
+            direcao = LVector3(x, y, z)
+            
+            # Cria um modelo de detrito baseado na qualidade dos efeitos
+            if hasattr(self, 'qualidade') and self.qualidade == 'baixa':
+                # Versão simplificada para baixa qualidade
+                detrito = self.game.loader.loadModel("models/misc/sphere")
+            else:
+                # Escolhe entre modelos básicos que sabemos que existem
+                modelos = ["models/misc/cube", "models/misc/sphere"]
+                try:
+                    detrito = self.game.loader.loadModel(random.choice(modelos))
+                except Exception as e:
+                    # Fallback para modelo mais simples em caso de erro
+                    print(f"Aviso: Erro ao carregar modelo para detrito: {e}")
+                    detrito = self.game.loader.loadModel("models/misc/sphere")
+            
+            detrito.reparentTo(node_pai)
+            
+            # Escala aleatória pequena
+            escala = random.uniform(0.1, 0.3) * (raio / 2.0)
+            detrito.setScale(escala)
+            
+            # Cor baseada na cor da explosão com variações
+            r, g, b = cor_base
+            var = 0.2  # Variação de cor
+            cor_particula = (
+                min(1.0, r + random.uniform(-var, var)),
+                min(1.0, g + random.uniform(-var, var)),
+                min(1.0, b + random.uniform(-var, var))
+            )
+            detrito.setColor(*cor_particula, 1)
+            
+            # Rotação aleatória
+            detrito.setHpr(
+                random.uniform(0, 360),
+                random.uniform(0, 360),
+                random.uniform(0, 360)
+            )
+            
+            # Velocidade de rotação aleatória
+            rot_velocidade = LVector3(
+                random.uniform(-180, 180),
+                random.uniform(-180, 180),
+                random.uniform(-180, 180)
+            )
+            
+            # Tempo de vida aleatório
+            tempo_vida = random.uniform(duracao * 0.2, duracao * 0.8)
+            
+            # Adiciona a partícula à lista
+            particulas.append({
+                'node': detrito,
+                'velocidade': direcao * velocidade,
+                'rotacao': rot_velocidade,
+                'tempo_vida': tempo_vida,
+                'tempo_inicial': tempo_vida
+            })
+        
+        return particulas
+        
     def _criar_centelhas_explosao(self, node_pai, num_centelhas, raio):
         """
         Cria centelhas brilhantes para a explosão.
@@ -620,6 +888,82 @@ class EffectsSystem:
         # Atualiza rastros de projéteis
         self._atualizar_rastros(dt)
         
+    def _criar_fumaca_explosao(self, explosao, num_nuvens, raio, duracao):
+        """
+        Cria nuvens de fumaça para a explosão.
+        
+        Args:
+            explosao: Dicionário com informações da explosão.
+            num_nuvens: Número de nuvens de fumaça a criar.
+            raio: Raio da explosão.
+            duracao: Duração da explosão em segundos.
+        """
+        node_pai = explosao['node']
+        fumaca = []
+        
+        # Cria várias nuvens de fumaça em posições aleatórias próximas ao centro
+        for _ in range(num_nuvens):
+            # Posição aleatória dentro do raio da explosão
+            pos = LVector3(
+                random.uniform(-raio/2, raio/2),
+                random.uniform(-raio/2, raio/2),
+                random.uniform(0, raio/2)  # Tende a subir
+            )
+            
+            # Cria o sprite da fumaça
+            nuvem = self.game.loader.loadModel("models/misc/plane")
+            nuvem.reparentTo(node_pai)
+            nuvem.setPos(pos)
+            
+            # Configura a aparência da fumaça
+            nuvem.setTransparency(TransparencyAttrib.MAlpha)
+            
+            # Cor cinza com variações
+            intensidade = random.uniform(0.3, 0.7)
+            nuvem.setColor(intensidade, intensidade, intensidade, 0.3)  # Inicialmente semi-transparente
+            
+            # Escala aleatória
+            escala_base = random.uniform(0.5, 1.5) * raio
+            nuvem.setScale(escala_base * 0.2)  # Começa pequena e cresce
+            
+            # Sempre virado para a câmera
+            nuvem.setBillboardPointEye()
+            
+            # Se tivermos texturas, aplica uma textura de fumaça
+            if hasattr(self, 'texturas') and 'fumaca' in self.texturas:
+                try:
+                    nuvem.setTexture(self.texturas['fumaca'])
+                except Exception as e:
+                    print(f"Aviso: Não foi possível aplicar textura de fumaça: {e}")
+            
+            # Velocidade de subida lenta
+            velocidade = LVector3(
+                random.uniform(-1, 1),
+                random.uniform(-1, 1),
+                random.uniform(1, 3)  # Tende a subir
+            )
+            
+            # Velocidade de rotação lenta
+            rot_vel = random.uniform(-20, 20)
+            
+            # Tempo de vida maior que a explosão para permanecer após
+            tempo_vida = random.uniform(duracao * 1.2, duracao * 2.5)
+            
+            fumaca.append({
+                'node': nuvem,
+                'velocidade': velocidade,
+                'rotacao': rot_vel,
+                'escala_base': escala_base,
+                'escala_atual': escala_base * 0.2,
+                'escala_max': escala_base * 2.0,  # Tamanho máximo que a fumaça pode crescer
+                'tempo_vida': tempo_vida,
+                'tempo_inicial': tempo_vida,
+                'alpha_inicial': 0.3
+            })
+        
+        # Armazena a lista de fumaça na explosão
+        explosao['fumaca'] = fumaca
+    
     def _atualizar_explosoes(self, dt):
         """
         Atualiza todas as explosões ativas.

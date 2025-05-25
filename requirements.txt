@@ -2,3 +2,4 @@ pygame>=2.0.0
 panda3d>=1.10.13
 numpy>=1.21.0
 pillow>=9.0.0
+pyinstaller>=6.0.0
